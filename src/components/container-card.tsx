@@ -12,7 +12,7 @@ const MAX_DISPLAY_PORTS = 8;
 
 function getDisplayName(names: string[]): string {
   const name = names?.[0] ?? "";
-  return name.replace(/^\//, "");
+  return String(name).replace(/^\//, "");
 }
 
 /**
@@ -26,9 +26,10 @@ function getContainerHealth(container: ContainerItem): string | undefined {
     (typeof (container as { State?: { Health?: { Status?: string } } }).State === "object"
       ? (container as { State: { Health?: { Status?: string } } }).State?.Health?.Status
       : undefined);
-  const normalized = raw?.toLowerCase().trim();
+  const rawStr = raw != null ? String(raw) : "";
+  const normalized = rawStr.toLowerCase().trim();
   if (normalized && normalized !== "none") return normalized;
-  const status = (container.Status ?? "").toLowerCase();
+  const status = String(container.Status ?? "").toLowerCase();
   if (status.includes("(healthy)") || /\bhealthy\b/.test(status)) return "healthy";
   if (status.includes("(unhealthy)") || /\bunhealthy\b/.test(status)) return "unhealthy";
   if (status.includes("(starting)") || /\bstarting\b/.test(status)) return "starting";
@@ -132,7 +133,7 @@ interface ContainerCardProps {
 function isMcContainer(container: ContainerItem): boolean {
   const labels = (container as ContainerItem & { Labels?: Record<string, string> }).Labels;
   if (labels?.["hcc.kind"] === "minecraft") return true;
-  const n = getDisplayName(container.Names).toLowerCase();
+  const n = String(getDisplayName(container.Names ?? [])).toLowerCase();
   return (
     n === "mc" ||
     n === "minecraft" ||
