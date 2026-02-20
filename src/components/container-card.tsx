@@ -8,7 +8,7 @@ import { getServiceOpenUrlFromMap, type ServicesMap } from "@/config/services";
 import type { ContainerItem } from "@/types/container";
 import { ExternalLink } from "lucide-react";
 
-const MAX_DISPLAY_PORTS = 8;
+const MAX_DISPLAY_PORTS = 5;
 
 function getDisplayName(names: string[]): string {
   const name = names?.[0] ?? "";
@@ -170,7 +170,7 @@ export function ContainerCard({ container, servicesMap, minecraftStatus }: Conta
 
   return (
     <Link href={`/container/${id}`} className="block touch-manipulation">
-      <Card className="h-full transition-opacity hover:opacity-95 active:opacity-90 cursor-pointer">
+      <Card className="h-full cursor-pointer transition-all duration-200 ease-out hover:-translate-y-1 hover:shadow-lg hover:shadow-black/5 hover:border-primary/30 active:scale-[0.995] active:translate-y-0 dark:hover:shadow-black/20">
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-4">

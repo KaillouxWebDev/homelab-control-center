@@ -310,7 +310,7 @@ export async function fetchContainers(): Promise<
 const INSPECT_CONCURRENCY = 5;
 const INSPECT_ENRICH_MAX = 50;
 /** Max ports per container in list response (dashboard cards show only these). */
-const MAX_PORTS_PER_CONTAINER = 8;
+const MAX_PORTS_PER_CONTAINER = 5;
 
 /**
  * Fetch containers and enrich health from inspect (source of truth, same as Portainer UI).
@@ -323,11 +323,9 @@ export async function fetchContainersWithHealth(): Promise<
   const out = await fetchContainers();
   if ("error" in out) return out;
   const list = out.data;
+  trimPortsPerContainer(list);
   const running = list.filter((c) => c.State === "running").slice(0, INSPECT_ENRICH_MAX);
-  if (running.length === 0) {
-    trimPortsPerContainer(list);
-    return { data: list };
-  }
+  if (running.length === 0) return { data: list };
 
   const chunks: PortainerContainer[][] = [];
   for (let i = 0; i < running.length; i += INSPECT_CONCURRENCY) {
@@ -347,10 +345,10 @@ export async function fetchContainersWithHealth(): Promise<
       }
     });
   }
-  trimPortsPerContainer(list);
   return { data: list };
 }
 
+/** Replace each container's Ports with at most the last N (no accumulation between fetches). */
 function trimPortsPerContainer(list: PortainerContainer[]): void {
   for (const c of list) {
     const withPublic = (c.Ports ?? []).filter((p) => p.PublicPort);
@@ -436,4 +434,108 @@ export async function containerAction(
   );
   if ("error" in result) return { error: result.error };
   return { ok: true };
+}
+
+// --- Container stats (CPU, memory, network) ---
+
+export interface ContainerStatsSnapshot {
+  cpuPercent: number | null;
+  memoryUsageBytes: number | null;
+  memoryLimitBytes: number | null;
+  memoryPercent: number | null;
+  networkRxBytes: number;
+  networkTxBytes: number;
+  pidsCount: number | null;
+  readAt: string;
+}
+
+interface DockerStatsRaw {
+  cpu_stats?: {
+    cpu_usage?: { total_usage?: number };
+    system_cpu_usage?: number;
+    online_cpus?: number;
+  };
+  precpu_stats?: {
+    cpu_usage?: { total_usage?: number };
+    system_cpu_usage?: number;
+  };
+  memory_stats?: {
+    usage?: number;
+    limit?: number;
+  };
+  networks?: Record<string, { rx_bytes?: number; tx_bytes?: number }>;
+  pids_stats?: { current?: number };
+}
+
+function normalizeStats(raw: DockerStatsRaw): ContainerStatsSnapshot {
+  const readAt = new Date().toISOString();
+  let cpuPercent: number | null = null;
+  const cpuUsage = raw.cpu_stats?.cpu_usage?.total_usage ?? 0;
+  const systemUsage = raw.cpu_stats?.system_cpu_usage ?? 0;
+  const preCpuUsage = raw.precpu_stats?.cpu_usage?.total_usage ?? 0;
+  const preSystemUsage = raw.precpu_stats?.system_cpu_usage ?? 0;
+  const deltaCpu = cpuUsage - preCpuUsage;
+  const deltaSystem = systemUsage - preSystemUsage;
+  if (deltaSystem > 0 && raw.cpu_stats?.online_cpus) {
+    cpuPercent = (deltaCpu / deltaSystem) * raw.cpu_stats.online_cpus * 100;
+    cpuPercent = Math.min(100, Math.max(0, Math.round(cpuPercent * 100) / 100));
+  }
+
+  const memoryUsageBytes = raw.memory_stats?.usage ?? null;
+  const memoryLimitBytes = raw.memory_stats?.limit ?? null;
+  let memoryPercent: number | null = null;
+  if (memoryUsageBytes != null && memoryLimitBytes != null && memoryLimitBytes > 0) {
+    memoryPercent = Math.round((memoryUsageBytes / memoryLimitBytes) * 10000) / 100;
+  }
+
+  let networkRxBytes = 0;
+  let networkTxBytes = 0;
+  if (raw.networks && typeof raw.networks === "object") {
+    for (const iface of Object.values(raw.networks)) {
+      networkRxBytes += iface?.rx_bytes ?? 0;
+      networkTxBytes += iface?.tx_bytes ?? 0;
+    }
+  }
+
+  const pidsCount = raw.pids_stats?.current ?? null;
+
+  return {
+    cpuPercent,
+    memoryUsageBytes,
+    memoryLimitBytes,
+    memoryPercent,
+    networkRxBytes,
+    networkTxBytes,
+    pidsCount,
+    readAt,
+  };
+}
+
+const MOCK_STATS: ContainerStatsSnapshot = {
+  cpuPercent: 0.42,
+  memoryUsageBytes: 512 * 1024 * 1024,
+  memoryLimitBytes: 2 * 1024 * 1024 * 1024,
+  memoryPercent: 25,
+  networkRxBytes: 128 * 1024 * 1024,
+  networkTxBytes: 64 * 1024 * 1024,
+  pidsCount: 12,
+  readAt: new Date().toISOString(),
+};
+
+export async function fetchContainerStats(
+  containerId: string
+): Promise<{ data: ContainerStatsSnapshot } | { error: PortainerApiError }> {
+  if (isDemoMode()) {
+    return { data: { ...MOCK_STATS, readAt: new Date().toISOString() } };
+  }
+
+  const required = getRequiredEnv();
+  if (!required.ok) return { error: { status: 0, message: `Missing: ${required.missing.join(", ")}` } };
+  if (!hasPortainerAuth()) return { error: { status: 0, message: "Portainer auth not configured" } };
+
+  const result = await portainerFetch<DockerStatsRaw>(
+    `/api/endpoints/{id}/docker/containers/${containerId}/stats?stream=0`
+  );
+  if ("error" in result) return { error: result.error };
+  return { data: normalizeStats(result.data) };
 }
