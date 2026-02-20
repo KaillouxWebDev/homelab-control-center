@@ -1,0 +1,91 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 98%;
+    --card-foreground: 222 47% 11%;
+    --border: 214 32% 91%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+    --primary: 210 100% 56%;
+    --primary-foreground: 210 40% 98%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 210 40% 98%;
+    --success: 142 71% 45%;
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    --background: 222 47% 6%;
+    --foreground: 210 40% 98%;
+    --card: 222 35% 10%;
+    --card-foreground: 210 40% 98%;
+    --border: 215 20% 18%;
+    --muted: 215 20% 16%;
+    --muted-foreground: 215 15% 55%;
+    --primary: 210 100% 56%;
+    --primary-foreground: 210 40% 98%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 210 40% 98%;
+    --success: 142 71% 45%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    @apply antialiased;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans;
+  }
+}
+
+/* Kiosk mode: hide scrollbars, limit overflow */
+.kiosk-mode {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+.kiosk-mode ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.kiosk-mode ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.kiosk-mode ::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted));
+  border-radius: 3px;
+}
+
+.kiosk-mode .scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.kiosk-mode .scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Logs panel: always show scrollbar when needed but minimal */
+.logs-panel {
+  scrollbar-width: thin;
+}
+
+.logs-panel::-webkit-scrollbar {
+  width: 8px;
+}
+
+.logs-panel::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted));
+  border-radius: 4px;
+}
