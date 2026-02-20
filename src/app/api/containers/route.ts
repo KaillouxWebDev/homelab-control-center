@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { fetchContainers } from "@/lib/portainer";
+import { fetchContainersWithHealth } from "@/lib/portainer";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export async function GET() {
-  const result = await fetchContainers();
+  const result = await fetchContainersWithHealth();
   if ("error" in result) {
     const { status, message } = result.error;
     let httpStatus = status === 0 ? 503 : status;

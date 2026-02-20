@@ -8,6 +8,8 @@ import { getServiceOpenUrlFromMap, type ServicesMap } from "@/config/services";
 import type { ContainerItem } from "@/types/container";
 import { ExternalLink } from "lucide-react";
 
+const MAX_DISPLAY_PORTS = 8;
+
 function getDisplayName(names: string[]): string {
   const name = names?.[0] ?? "";
   return name.replace(/^\//, "");
@@ -15,19 +17,21 @@ function getDisplayName(names: string[]): string {
 
 /**
  * Derive health from container list response.
- * Docker API puts health in Status string, e.g. "Up 2 hours (healthy)" or "Up 2 hours (unhealthy)".
- * Some environments also return a top-level Health field.
+ * Prefer explicit Health (from list API or enriched from inspect). Otherwise parse Status string
+ * (e.g. "Up 2 hours (healthy)"). Values are normalized to lowercase.
  */
 function getContainerHealth(container: ContainerItem): string | undefined {
-  const raw = (container as { Health?: string; State?: { Health?: { Status?: string } } }).Health
-    ?? (typeof (container as { State?: { Health?: { Status?: string } } }).State === "object"
+  const raw =
+    (container as { Health?: string; State?: { Health?: { Status?: string } } }).Health ??
+    (typeof (container as { State?: { Health?: { Status?: string } } }).State === "object"
       ? (container as { State: { Health?: { Status?: string } } }).State?.Health?.Status
       : undefined);
-  if (raw && raw !== "none") return raw;
-  const status = container.Status ?? "";
-  if (status.includes("(healthy)")) return "healthy";
-  if (status.includes("(unhealthy)")) return "unhealthy";
-  if (status.includes("(starting)")) return "starting";
+  const normalized = raw?.toLowerCase().trim();
+  if (normalized && normalized !== "none") return normalized;
+  const status = (container.Status ?? "").toLowerCase();
+  if (status.includes("(healthy)") || /\bhealthy\b/.test(status)) return "healthy";
+  if (status.includes("(unhealthy)") || /\bunhealthy\b/.test(status)) return "unhealthy";
+  if (status.includes("(starting)") || /\bstarting\b/.test(status)) return "starting";
   return undefined;
 }
 
@@ -153,9 +157,8 @@ export function ContainerCard({ container, servicesMap, minecraftStatus }: Conta
   const Icon = getContainerIcon(name);
   const state = container.State;
   const ports = container.Ports?.filter((p) => p.PublicPort) ?? [];
-  const maxVisible = 8;
-  const displayedPorts = ports.length <= maxVisible ? ports : ports.slice(-maxVisible);
-  const moreCount = ports.length > maxVisible ? ports.length - maxVisible : 0;
+  const displayedPorts = ports.slice(-MAX_DISPLAY_PORTS);
+  const moreCount = ports.length > MAX_DISPLAY_PORTS ? ports.length - MAX_DISPLAY_PORTS : 0;
   const showMinecraft = isMcContainer(container) && minecraftStatus;
   const openConfig = getServiceOpenUrlFromMap(
     name,
@@ -200,7 +203,10 @@ export function ContainerCard({ container, servicesMap, minecraftStatus }: Conta
               {moreCount > 0 && (
                 <span
                   className="text-xs text-muted-foreground opacity-60 shrink-0"
-                  title={ports.map((p) => `${p.PublicPort}:${p.PrivatePort}/${p.Type}`).join(", ")}
+                  title={ports
+                    .slice(-20)
+                    .map((p) => `${p.PublicPort}:${p.PrivatePort}/${p.Type}`)
+                    .join(", ") + (ports.length > 20 ? ` … (+${ports.length - 20} autres)` : "")}
                 >
                   +{moreCount} more
                 </span>

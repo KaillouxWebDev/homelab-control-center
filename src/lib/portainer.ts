@@ -230,6 +230,8 @@ export interface PortainerContainer {
   Image: string;
   State: string;
   Status: string;
+  /** Set from list API when provided, or enriched from inspect (source of truth) */
+  Health?: string;
   Ports?: Array<{
     PublicPort?: number;
     PrivatePort: number;
@@ -303,6 +305,57 @@ export async function fetchContainers(): Promise<
   }
 
   return portainerFetch<PortainerContainer[]>(`/api/endpoints/{id}/docker/containers/json?all=true`);
+}
+
+const INSPECT_CONCURRENCY = 5;
+const INSPECT_ENRICH_MAX = 50;
+/** Max ports per container in list response (dashboard cards show only these). */
+const MAX_PORTS_PER_CONTAINER = 8;
+
+/**
+ * Fetch containers and enrich health from inspect (source of truth, same as Portainer UI).
+ * Only running containers are enriched; concurrency and count are limited to avoid overload.
+ * Ports are trimmed to the last MAX_PORTS_PER_CONTAINER so cards stay compact.
+ */
+export async function fetchContainersWithHealth(): Promise<
+  { data: PortainerContainer[] } | { error: PortainerApiError }
+> {
+  const out = await fetchContainers();
+  if ("error" in out) return out;
+  const list = out.data;
+  const running = list.filter((c) => c.State === "running").slice(0, INSPECT_ENRICH_MAX);
+  if (running.length === 0) {
+    trimPortsPerContainer(list);
+    return { data: list };
+  }
+
+  const chunks: PortainerContainer[][] = [];
+  for (let i = 0; i < running.length; i += INSPECT_CONCURRENCY) {
+    chunks.push(running.slice(i, i + INSPECT_CONCURRENCY));
+  }
+  for (const chunk of chunks) {
+    const results = await Promise.allSettled(
+      chunk.map((c) => fetchContainerInspect(c.Id))
+    );
+    results.forEach((res, i) => {
+      if (res.status === "fulfilled" && "data" in res.value) {
+        const health = res.value.data.State?.Health?.Status;
+        if (health) {
+          const c = list.find((x) => x.Id === chunk[i].Id);
+          if (c) c.Health = health;
+        }
+      }
+    });
+  }
+  trimPortsPerContainer(list);
+  return { data: list };
+}
+
+function trimPortsPerContainer(list: PortainerContainer[]): void {
+  for (const c of list) {
+    const withPublic = (c.Ports ?? []).filter((p) => p.PublicPort);
+    c.Ports = withPublic.slice(-MAX_PORTS_PER_CONTAINER);
+  }
 }
 
 export async function fetchContainerInspect(
