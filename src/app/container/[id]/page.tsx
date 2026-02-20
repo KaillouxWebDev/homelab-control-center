@@ -30,7 +30,7 @@ import {
   Network,
   Activity,
   Ship,
-  Port,
+  Plug,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -349,7 +349,7 @@ export default function ContainerDetailPage({ params }: PageProps) {
             <Card>
               <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2">
-                  <Port className="h-4 w-4" />
+                  <Plug className="h-4 w-4" />
                   Ports utilisés
                 </CardTitle>
                 <p className="text-sm text-muted-foreground">
