@@ -7,10 +7,18 @@ export const revalidate = 0;
 export async function GET() {
   const result = await fetchContainers();
   if ("error" in result) {
-    return NextResponse.json(
-      { error: result.error.message },
-      { status: result.error.status === 0 ? 503 : result.error.status }
-    );
+    const { status, message } = result.error;
+    let httpStatus = status === 0 ? 503 : status;
+
+    // Heuristic: TLS / certificat
+    if (
+      status === 0 &&
+      /cert|certificate|self signed|unable to verify/i.test(message)
+    ) {
+      httpStatus = 502;
+    }
+
+    return NextResponse.json({ error: message }, { status: httpStatus });
   }
   return NextResponse.json(result.data);
 }
