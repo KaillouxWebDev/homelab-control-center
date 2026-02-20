@@ -1,0 +1,10 @@
+# Minimal compose to run homelab-control-center locally.
+# Configure .env with PORTAINER_* before running.
+
+services:
+  app:
+    build: .
+    ports:
+      - "3005:3005"
+    env_file: .env
+    restart: unless-stopped

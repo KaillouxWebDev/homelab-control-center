@@ -1,0 +1,46 @@
+# Dependencies
+node_modules
+.pnp
+.pnp.js
+
+# Build and output
+.next/
+out/
+build
+dist
+
+# Testing
+coverage
+
+# Environment (keep .env.example)
+.env
+.env.*
+!.env.example
+
+# User config (keep config/services.example.yml)
+config/services.yml
+
+# Logs and debug
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS
+.DS_Store
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# Vercel
+.vercel
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# Secrets (extra safety)
+*.pem

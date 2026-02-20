@@ -1,0 +1,15 @@
+# Optional: copy to services.yml and customize.
+# Used for "Open" button URLs per container name (e.g. reverse proxy).
+# Container name match is case-insensitive; first match wins.
+
+services:
+  jellyfin:
+    openUrl: "http://jellyfin.home"
+  pihole:
+    openUrl: "http://pihole.home/admin"
+  mc:
+    openUrl: null
+  portainer:
+    openUrl: "https://portainer.home"
+  filebrowser:
+    openUrl: "https://files.home"

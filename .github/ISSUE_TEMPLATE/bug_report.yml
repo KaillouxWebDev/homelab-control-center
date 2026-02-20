@@ -1,0 +1,82 @@
+name: Bug report
+description: Report a bug or unexpected behavior
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report this. Please fill in as much as you can so we can reproduce the issue.
+  - type: input
+    id: version
+    attributes:
+      label: Homelab Control Center version
+      description: Version or commit (e.g. 0.1.0 or abc1234)
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: How did you run the app?
+      options:
+        - npm run dev
+        - npm run build && npm start
+        - Docker
+        - Docker Compose
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: portainer
+    attributes:
+      label: Portainer version (if applicable)
+      description: e.g. 2.19.4 or N/A (demo mode)
+      placeholder: "2.19.4 or N/A"
+  - type: input
+    id: endpoint
+    attributes:
+      label: Endpoint type (if applicable)
+      description: e.g. local Docker, remote Docker, Swarm
+      placeholder: "local Docker"
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Go to '...'
+        2. Click on '...'
+        3. See error
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      placeholder: What should happen?
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      placeholder: What actually happened?
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or error snippet
+      description: Paste relevant logs (no secrets). Browser console or server output.
+      render: shell
+  - type: input
+    id: os
+    attributes:
+      label: OS
+      placeholder: e.g. macOS 14, Ubuntu 22.04
+  - type: input
+    id: node
+    attributes:
+      label: Node version
+      description: Output of `node -v`
+      placeholder: "v20.x"
