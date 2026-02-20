@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <rect width="32" height="32" rx="6" fill="hsl(var(--background))" stroke="hsl(var(--foreground) / 0.2)" stroke-width="1.5"/>
+  <path d="M10 12h4v2h-4v-2zm0 4h4v2h-4v-2zm8-4h4v2h-4v-2zm0 4h4v2h-4v-2z" fill="hsl(var(--foreground) / 0.8)"/>
+  <rect x="8" y="10" width="16" height="12" rx="1" stroke="hsl(var(--foreground) / 0.4)" stroke-width="1" fill="none"/>
+</svg>
