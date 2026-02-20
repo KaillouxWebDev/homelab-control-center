@@ -6,7 +6,24 @@ import { PortainerBanner } from "@/components/portainer-banner";
 import type { ContainerItem } from "@/types/container";
 import type { ServicesMap } from "@/config/services";
 
-const fetcher = (url: string) => fetch(url).then((r) => (r.ok ? r.json() : Promise.reject(new Error("Portainer unreachable"))));
+type ApiError = Error & { status?: number };
+
+const fetcher = async (url: string) => {
+  const res = await fetch(url);
+  if (!res.ok) {
+    let message = "Portainer unreachable";
+    try {
+      const data = (await res.json()) as { error?: string };
+      if (data?.error) message = data.error;
+    } catch {
+      // ignore JSON parse errors
+    }
+    const err = new Error(message) as ApiError;
+    err.status = res.status;
+    throw err;
+  }
+  return res.json();
+};
 
 export default function HomePage() {
   const { data: containers, error, isLoading } = useSWR<ContainerItem[]>("/api/containers", fetcher, {
@@ -17,7 +34,7 @@ export default function HomePage() {
 
   return (
     <main className="min-h-screen flex flex-col">
-      {error && <PortainerBanner />}
+      {error && <PortainerBanner error={error as ApiError} />}
       <div className="flex-1 p-6 md:p-8 lg:p-10">
         <div className="mb-8 md:mb-10">
           <h1 className="text-xl md:text-2xl font-semibold tracking-tight text-foreground">

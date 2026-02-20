@@ -24,6 +24,10 @@ const FETCH_TIMEOUT_MS = 5000;
 let cachedToken: string | null = null;
 let tokenExpiresAt: number = 0;
 
+type AuthMode = "apiKey" | "jwt";
+
+let resolvedAuthMode: AuthMode | null = null;
+
 // Apply insecure TLS once when module loads (server-side only).
 if (typeof process !== "undefined") {
   applyInsecureTls();
@@ -41,17 +45,50 @@ function isTokenValid(): boolean {
   return !!cachedToken && Date.now() < tokenExpiresAt;
 }
 
+function resolveAuthMode(): AuthMode | null {
+  if (isDemoMode()) return null;
+  if (resolvedAuthMode) return resolvedAuthMode;
+
+  const apiKey = getPortainerApiKey();
+  const username = getPortainerUsername();
+  const password = getPortainerPassword();
+
+  if (apiKey && username && password) {
+    // Guard: configuration error if both modes are set
+    console.error(
+      "[portainer] Both PORTAINER_API_KEY and PORTAINER_USERNAME/PORTAINER_PASSWORD are set. Configure only one auth mode."
+    );
+    throw new Error(
+      "Portainer auth misconfigured: set either PORTAINER_API_KEY OR PORTAINER_USERNAME/PORTAINER_PASSWORD, not both."
+    );
+  }
+
+  resolvedAuthMode = apiKey ? "apiKey" : "jwt";
+
+  if (typeof console !== "undefined") {
+    console.log(
+      `[portainer] Auth mode: ${isDemoMode() ? "demo" : resolvedAuthMode}`
+    );
+  }
+
+  return resolvedAuthMode;
+}
+
 export async function getPortainerToken(): Promise<string> {
   if (isDemoMode()) return "demo-token";
-  const apiKey = getPortainerApiKey();
-  if (apiKey) return apiKey;
+  const mode = resolveAuthMode();
+  if (mode === "apiKey") {
+    throw new Error("getPortainerToken() must not be called in API key mode");
+  }
   if (isTokenValid()) return cachedToken!;
 
   const baseUrl = getBaseUrl();
   const username = getPortainerUsername();
   const password = getPortainerPassword();
   if (!username || !password) {
-    throw new Error("PORTAINER_USERNAME and PORTAINER_PASSWORD are required when PORTAINER_API_KEY is not set");
+    throw new Error(
+      "PORTAINER_USERNAME and PORTAINER_PASSWORD are required when PORTAINER_API_KEY is not set"
+    );
   }
 
   const controller = new AbortController();
@@ -67,7 +104,7 @@ export async function getPortainerToken(): Promise<string> {
     clearTimeout(timeout);
 
     if (!res.ok) {
-      const text = await res.text();
+      await res.text(); // consume body
       throw new Error(`Portainer auth failed: ${res.status}`);
     }
 
@@ -91,32 +128,75 @@ export function clearPortainerToken(): void {
 
 export type PortainerApiError = { status: number; message: string };
 
+async function buildAuthHeaders(
+  existing: HeadersInit | undefined
+): Promise<{ headers: HeadersInit } | { error: PortainerApiError }> {
+  if (isDemoMode()) {
+    return { headers: existing ?? {} };
+  }
+
+  const mode = resolveAuthMode();
+
+  // Start from existing headers (if any)
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(existing as Record<string, string> | undefined),
+  };
+
+  if (mode === "apiKey") {
+    const apiKey = getPortainerApiKey();
+    if (!apiKey) {
+      return {
+        error: {
+          status: 0,
+          message: "PORTAINER_API_KEY is not set but apiKey mode was selected",
+        },
+      };
+    }
+    // Use Portainer API key header
+    headers["X-API-Key"] = apiKey;
+    delete headers.Authorization;
+    return { headers };
+  }
+
+  // JWT mode
+  try {
+    const token = await getPortainerToken();
+    headers.Authorization = `Bearer ${token}`;
+    return { headers };
+  } catch (e) {
+    return {
+      error: {
+        status: 0,
+        message: e instanceof Error ? e.message : "Auth failed",
+      },
+    };
+  }
+}
+
 async function portainerFetch<T>(
   path: string,
   options: RequestInit = {}
 ): Promise<{ data: T } | { error: PortainerApiError }> {
   const baseUrl = getBaseUrl();
   const endpointId = getEndpointId();
-  const url = path.startsWith("http") ? path : `${baseUrl}${path.replace("{id}", endpointId)}`;
-
-  let token: string;
-  try {
-    token = await getPortainerToken();
-  } catch (e) {
-    return { error: { status: 0, message: e instanceof Error ? e.message : "Auth failed" } };
-  }
+  const url = path.startsWith("http")
+    ? path
+    : `${baseUrl}${path.replace("{id}", endpointId)}`;
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
 
   try {
+    const built = await buildAuthHeaders(options.headers);
+    if ("error" in built) {
+      clearTimeout(timeout);
+      return { error: built.error };
+    }
+
     const res = await fetch(url, {
       ...options,
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-        ...options.headers,
-      },
+      headers: built.headers,
       signal: controller.signal,
     });
     clearTimeout(timeout);
@@ -128,7 +208,9 @@ async function portainerFetch<T>(
 
     const text = await res.text();
     if (!res.ok) {
-      return { error: { status: res.status, message: text || res.statusText } };
+      return {
+        error: { status: res.status, message: text || res.statusText },
+      };
     }
 
     const data = text ? (JSON.parse(text) as T) : ({} as T);
@@ -251,19 +333,18 @@ export async function fetchContainerLogs(
   const endpointId = getEndpointId();
   const url = `${baseUrl}/api/endpoints/${endpointId}/docker/containers/${containerId}/logs?stdout=true&stderr=true&tail=${tail}`;
 
-  let token: string;
-  try {
-    token = await getPortainerToken();
-  } catch (e) {
-    return { error: { status: 0, message: e instanceof Error ? e.message : "Auth failed" } };
-  }
-
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
 
   try {
+    const built = await buildAuthHeaders(undefined);
+    if ("error" in built) {
+      clearTimeout(timeout);
+      return { error: built.error };
+    }
+
     const res = await fetch(url, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: built.headers,
       signal: controller.signal,
     });
     clearTimeout(timeout);
