@@ -27,8 +27,10 @@ function getDisplayName(name: string): string {
 
 const fetcher = (url: string) => fetch(url).then((r) => (r.ok ? r.json() : Promise.reject(new Error("Fetch failed"))));
 
-export default function ContainerDetailPage({ params }: { params: { id: string } }) {
-  const id = params.id;
+type PageProps = { params: { id: string } };
+
+export default function ContainerDetailPage({ params }: PageProps) {
+  const { id } = params;
   const [liveLogs, setLiveLogs] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [confirmAction, setConfirmAction] = useState<"start" | "stop" | "restart" | null>(null);
