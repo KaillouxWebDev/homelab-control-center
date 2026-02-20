@@ -6,7 +6,12 @@ import { PortainerBanner } from "@/components/portainer-banner";
 import type { ContainerItem } from "@/types/container";
 import type { ServicesMap } from "@/config/services";
 
+import type { MinecraftStatus } from "@/components/container-card";
+
 const fetcher = (url: string) => fetch(url).then((r) => (r.ok ? r.json() : Promise.reject(new Error("Portainer unreachable"))));
+
+const minecraftStatusFetcher = (url: string) =>
+  fetch(url).then((r) => r.json()) as Promise<MinecraftStatus>;
 
 export default function HomePage() {
   const { data: containers, error, isLoading } = useSWR<ContainerItem[]>("/api/containers", fetcher, {
@@ -14,6 +19,11 @@ export default function HomePage() {
     revalidateOnFocus: true,
   });
   const { data: servicesMap } = useSWR<ServicesMap>("/api/services", fetcher, { revalidateOnFocus: false });
+  const { data: minecraftStatus } = useSWR<MinecraftStatus>(
+    "/api/minecraft/status",
+    minecraftStatusFetcher,
+    { refreshInterval: 5000, revalidateOnFocus: false }
+  );
 
   return (
     <main className="min-h-screen flex flex-col">
@@ -39,7 +49,12 @@ export default function HomePage() {
         {!isLoading && containers && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
             {containers.map((c) => (
-              <ContainerCard key={c.Id} container={c} servicesMap={servicesMap} />
+              <ContainerCard
+                key={c.Id}
+                container={c}
+                servicesMap={servicesMap}
+                minecraftStatus={minecraftStatus}
+              />
             ))}
           </div>
         )}

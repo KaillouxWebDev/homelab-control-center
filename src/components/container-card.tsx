@@ -40,17 +40,102 @@ function HealthBadge({ health }: { health?: string | null }) {
   );
 }
 
+function MinecraftBadge({
+  children,
+  variant = "muted",
+}: {
+  children: React.ReactNode;
+  variant?: "success" | "muted" | "destructive";
+}) {
+  const classes =
+    variant === "success"
+      ? "bg-success/15 text-success"
+      : variant === "destructive"
+        ? "bg-destructive/15 text-destructive"
+        : "bg-muted/60 text-muted-foreground";
+  return (
+    <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ${classes}`}>
+      {children}
+    </span>
+  );
+}
+
+function MinecraftBadges({ status }: { status: MinecraftStatus }) {
+  const up = status.ok && status.up;
+  const checkedLabel = formatCheckedAt(status.checkedAt);
+  const wrapper = (
+    <span className="inline-flex flex-wrap items-center gap-1.5">
+      <MinecraftBadge variant={up ? "success" : "destructive"}>{up ? "UP" : "DOWN"}</MinecraftBadge>
+      <span className="text-muted-foreground text-xs">
+        Players: {up && typeof status.online === "number" && typeof status.max === "number" ? `${status.online}/${status.max}` : "—"}
+      </span>
+      <span className="text-muted-foreground text-xs">
+        Ping: {up && typeof status.latencyMs === "number" ? `${status.latencyMs} ms` : "—"}
+      </span>
+      <span className="text-muted-foreground text-xs">
+        {up && status.version ? status.version : "Version: —"}
+      </span>
+    </span>
+  );
+  if (!up && status.checkedAt) {
+    return (
+      <span title={`Dernier check: ${checkedLabel}`} className="cursor-default">
+        {wrapper}
+      </span>
+    );
+  }
+  return wrapper;
+}
+
+export interface MinecraftStatus {
+  ok: boolean;
+  up: boolean;
+  online?: number;
+  max?: number;
+  version?: string;
+  latencyMs?: number;
+  checkedAt: string;
+  error?: string;
+}
+
 interface ContainerCardProps {
   container: ContainerItem;
   servicesMap?: ServicesMap | null;
+  minecraftStatus?: MinecraftStatus | null;
 }
 
-export function ContainerCard({ container, servicesMap }: ContainerCardProps) {
+function isMcContainer(container: ContainerItem): boolean {
+  const labels = (container as ContainerItem & { Labels?: Record<string, string> }).Labels;
+  if (labels?.["hcc.kind"] === "minecraft") return true;
+  const n = getDisplayName(container.Names).toLowerCase();
+  return (
+    n === "mc" ||
+    n === "minecraft" ||
+    n.startsWith("mc-") ||
+    n.endsWith("-mc")
+  );
+}
+
+function formatCheckedAt(iso?: string): string {
+  if (!iso) return "—";
+  try {
+    const d = new Date(iso);
+    return d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+  } catch {
+    return "—";
+  }
+}
+
+export function ContainerCard({ container, servicesMap, minecraftStatus }: ContainerCardProps) {
   const id = container.Id;
   const name = getDisplayName(container.Names);
   const Icon = getContainerIcon(name);
   const state = container.State;
   const ports = container.Ports?.filter((p) => p.PublicPort) ?? [];
+  const maxVisible = 8;
+  const displayedPorts = ports.length <= maxVisible ? ports : ports.slice(-maxVisible);
+  const moreCount = ports.length > maxVisible ? ports.length - maxVisible : 0;
+  const showMinecraft = isMcContainer(container) && minecraftStatus;
   const openConfig = getServiceOpenUrlFromMap(
     name,
     servicesMap,
@@ -72,6 +157,9 @@ export function ContainerCard({ container, servicesMap }: ContainerCardProps) {
                 <div className="flex items-center gap-2 mt-1 flex-wrap">
                   <StatusBadge state={state} />
                   <HealthBadge health={(container as ContainerItem & { Health?: string }).Health} />
+                  {showMinecraft && (
+                    <MinecraftBadges status={minecraftStatus!} />
+                  )}
                 </div>
               </div>
             </div>
@@ -79,8 +167,8 @@ export function ContainerCard({ container, servicesMap }: ContainerCardProps) {
         </CardHeader>
         <CardContent className="pb-2">
           {ports.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {ports.slice(0, 4).map((p) => (
+            <div className="flex flex-wrap gap-2 items-center">
+              {displayedPorts.map((p) => (
                 <span
                   key={`${p.PrivatePort}-${p.PublicPort}`}
                   className="text-xs text-muted-foreground bg-muted/50 rounded-md px-2 py-1"
@@ -88,6 +176,14 @@ export function ContainerCard({ container, servicesMap }: ContainerCardProps) {
                   {p.PublicPort}:{p.PrivatePort}/{p.Type}
                 </span>
               ))}
+              {moreCount > 0 && (
+                <span
+                  className="text-xs text-muted-foreground opacity-60 shrink-0"
+                  title={ports.map((p) => `${p.PublicPort}:${p.PrivatePort}/${p.Type}`).join(", ")}
+                >
+                  +{moreCount} more
+                </span>
+              )}
             </div>
           )}
         </CardContent>
