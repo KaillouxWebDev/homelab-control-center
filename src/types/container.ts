@@ -11,6 +11,8 @@ export interface ContainerItem {
   State: string;
   Status: string;
   Ports?: ContainerPort[];
+  /** Present when Docker/Portainer list API returns it */
+  Health?: string;
 }
 
 export interface ContainerInspectResponse {

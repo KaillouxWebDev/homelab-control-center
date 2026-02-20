@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { use, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import useSWR from "swr";
 import { Button } from "@/components/ui/button";
@@ -27,10 +27,10 @@ function getDisplayName(name: string): string {
 
 const fetcher = (url: string) => fetch(url).then((r) => (r.ok ? r.json() : Promise.reject(new Error("Fetch failed"))));
 
-type PageProps = { params: { id: string } };
+type PageProps = { params: Promise<{ id: string }> };
 
 export default function ContainerDetailPage({ params }: PageProps) {
-  const { id } = params;
+  const { id } = use(params);
   const [liveLogs, setLiveLogs] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [confirmAction, setConfirmAction] = useState<"start" | "stop" | "restart" | null>(null);

@@ -1,12 +1,10 @@
 "use client";
 
 import useSWR from "swr";
-import { ContainerCard } from "@/components/container-card";
+import { ContainerCard, type MinecraftStatus } from "@/components/container-card";
 import { PortainerBanner } from "@/components/portainer-banner";
 import type { ContainerItem } from "@/types/container";
 import type { ServicesMap } from "@/config/services";
-
-import type { MinecraftStatus } from "@/components/container-card";
 
 type ApiError = Error & { status?: number };
 

@@ -13,6 +13,24 @@ function getDisplayName(names: string[]): string {
   return name.replace(/^\//, "");
 }
 
+/**
+ * Derive health from container list response.
+ * Docker API puts health in Status string, e.g. "Up 2 hours (healthy)" or "Up 2 hours (unhealthy)".
+ * Some environments also return a top-level Health field.
+ */
+function getContainerHealth(container: ContainerItem): string | undefined {
+  const raw = (container as { Health?: string; State?: { Health?: { Status?: string } } }).Health
+    ?? (typeof (container as { State?: { Health?: { Status?: string } } }).State === "object"
+      ? (container as { State: { Health?: { Status?: string } } }).State?.Health?.Status
+      : undefined);
+  if (raw && raw !== "none") return raw;
+  const status = container.Status ?? "";
+  if (status.includes("(healthy)")) return "healthy";
+  if (status.includes("(unhealthy)")) return "unhealthy";
+  if (status.includes("(starting)")) return "starting";
+  return undefined;
+}
+
 function StatusBadge({ state }: { state: string }) {
   const running = state === "running";
   return (
@@ -29,13 +47,16 @@ function StatusBadge({ state }: { state: string }) {
 function HealthBadge({ health }: { health?: string | null }) {
   if (!health || health === "none") return <span className="text-muted-foreground text-xs">—</span>;
   const healthy = health === "healthy";
+  const starting = health === "starting";
+  const label = healthy ? "Healthy" : starting ? "Starting" : "Unhealthy";
+  const style = healthy
+    ? "bg-success/20 text-success"
+    : starting
+      ? "bg-muted text-muted-foreground"
+      : "bg-destructive/20 text-destructive";
   return (
-    <span
-      className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
-        healthy ? "bg-success/20 text-success" : "bg-destructive/20 text-destructive"
-      }`}
-    >
-      {health === "healthy" ? "Healthy" : "Unhealthy"}
+    <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${style}`}>
+      {label}
     </span>
   );
 }
@@ -156,7 +177,7 @@ export function ContainerCard({ container, servicesMap, minecraftStatus }: Conta
                 <h3 className="font-semibold truncate">{name}</h3>
                 <div className="flex items-center gap-2 mt-1 flex-wrap">
                   <StatusBadge state={state} />
-                  <HealthBadge health={(container as ContainerItem & { Health?: string }).Health} />
+                  <HealthBadge health={getContainerHealth(container)} />
                   {showMinecraft && (
                     <MinecraftBadges status={minecraftStatus!} />
                   )}
