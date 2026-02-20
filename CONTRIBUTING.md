@@ -2,6 +2,11 @@
 
 Thank you for your interest in contributing. This document covers how to run the project, our conventions, and how to submit changes.
 
+## Tech stack
+
+- **Next.js 14.2.x** (App Router) — see `package.json` for the exact version (e.g. 14.2.18).
+- Node.js 18+, TypeScript, Tailwind CSS, shadcn/ui, SWR.
+
 ## Running locally
 
 1. **Clone and install**

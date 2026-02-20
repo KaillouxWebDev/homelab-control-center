@@ -1,4 +1,4 @@
-![Next.js](https://img.shields.io/badge/Next.js-14-black)
+![Next.js](https://img.shields.io/badge/Next.js-14.2-black)
 ![Docker](https://img.shields.io/badge/Docker-ready-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
@@ -10,7 +10,7 @@ A clean, Apple-style dashboard to manage Docker containers via the Portainer CE 
 
 ## What is this?
 
-- **Next.js 14** (App Router) + **Tailwind** + **shadcn/ui** + **lucide-react** + **SWR**
+- **Next.js 14.2** (App Router) + **Tailwind** + **shadcn/ui** + **lucide-react** + **SWR**
 - Lists containers from a Portainer CE endpoint; view logs, start/stop/restart with confirmation and toasts
 - All Portainer requests go through the Next.js backend; **no credentials are ever sent to the browser**
 - Optional **demo mode** to run and test without any Portainer setup
@@ -24,7 +24,8 @@ A clean, Apple-style dashboard to manage Docker containers via the Portainer CE 
 
 ## Requirements
 
-- Node.js 18+
+- **Node.js 18+**
+- **Next.js 14.2.x** (see `package.json` for the exact version; currently 14.2.18)
 - Portainer CE
 - Docker environment connected to Portainer
 
