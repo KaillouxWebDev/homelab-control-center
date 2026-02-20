@@ -8,3 +8,5 @@ services:
       - "3005:3005"
     env_file: .env
     restart: unless-stopped
+    volumes:
+      - ./config/services.yml:/app/config/services.yml
